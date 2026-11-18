@@ -4,7 +4,7 @@ A MATLAB simulation that designs, implements and compares two controllers for au
 
 This project was done as part of the final project for the RBE 502: Robot Control course at WPI. Built on the course's Crazyflie quadrotor simulator.
 
-<table>
+<table align="center">
   <tr>
     <th></th>
     <th>Circle</th>
