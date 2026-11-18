@@ -23,6 +23,8 @@ Final project for **RBE 502: Robot Control, WPI**. Built on the course's Crazyfl
 </table>
 <p align="center"><em>Blue: desired path. Red: path actually flown.</em></p>
 
+---
+
 ## Overview
 
 A quadrotor is controlled through four inputs: the collective thrust `u1` and the three body moments `u2 = [Mx, My, Mz]`. Both controllers compute these from the current state and the desired trajectory.
@@ -34,43 +36,27 @@ The desired position, velocity, acceleration and yaw at each moment come from sm
 - **Circle:** a 1 m radius loop in the horizontal plane over 8 s, climbing to 0.5 m.
 - **Diamond:** a diamond in the vertical (y–z) plane, flown as four 2 s segments with sharp corners.
 
+---
+
 ## PD controller
 
-`control/pid_controller.m` is a **cascaded** controller with an outer position loop and an inner attitude loop. This structure follows from how a quadrotor moves: its thrust always points along its body axis, so to accelerate sideways it has to tilt first. The position loop therefore decides how much to accelerate in each direction, and the attitude loop tilts the quadrotor to produce that acceleration.
+`control/pid_controller.m` is a **cascaded** controller. A quadrotor can only accelerate sideways by tilting, so an outer loop decides the acceleration needed and an inner loop tilts the quadrotor to produce it.
 
-1. **Position loop.** For each axis, the commanded acceleration is the trajectory's own acceleration (feedforward) plus PD feedback on the position and velocity errors:
+- **Position loop:** computes the desired acceleration from the position and velocity errors, `r̈_des = r̈_T + Kd·(ṙ_T − ṙ) + Kp·(r_T − r)`. Its vertical part sets the thrust `u1`, and its horizontal part gives the desired roll and pitch.
+- **Attitude loop:** computes the moments `u2` that drive the roll, pitch and yaw to their targets, using PD feedback on the angle and angular-rate errors.
+- **Gains (hand-tuned):** position `Kp = [11, 11, 12]`, `Kd = [10.4, 10.4, 10]`; attitude `Kp = [74, 74, 20]`, `Kd = [58, 58, 15]`.
 
-   ```
-   r̈_des = r̈_T + Kd·(ṙ_T − ṙ) + Kp·(r_T − r)
-   ```
-
-   The vertical component sets the thrust, `u1 = m·g + m·r̈_des,z`. The horizontal components are converted into the desired roll and pitch angles using the near-hover equations and the desired yaw.
-
-2. **Attitude loop.** The moments are computed with PD feedback on the errors in the Euler angles and body rates, scaled by the inertia matrix:
-
-   ```
-   u2 = I·(Kp,att·(angle error) + Kd,att·(rate error))
-   ```
-
-   The roll and pitch targets come from the position loop, and the yaw target comes from the trajectory.
-
-The gains were tuned by hand. Position: `Kp = [11, 11, 12]`, `Kd = [10.4, 10.4, 10]` for x, y and z. Attitude: `Kp = [74, 74, 20]`, `Kd = [58, 58, 15]` for roll, pitch and yaw.
+---
 
 ## LQR controller
 
-`control/lqr_controller.m` takes a different approach. Instead of separate loops, it treats the quadrotor as one **12-state system**: position, Euler angles, linear velocity and body rates. It then computes all four inputs together, with a gain that is optimal for the current point on the trajectory.
+`control/lqr_controller.m` controls the quadrotor as a single **12-state system** (position, Euler angles, linear velocity and body rates) and computes all four inputs together.
 
-1. **Model.** The near-hover dynamics are written as `ẋ = f(x, u)`. They combine the kinematics (position and angle rates), the near-hover translational accelerations, and the rotational dynamics `ṗ = Mx/Ixx`, `q̇ = My/Iyy`, `ṙ = Mz/Izz`.
+- **Linearization:** LQR needs a linear model, so at every time step the near-hover dynamics are linearized around the desired state from the trajectory and the hover input, giving matrices `A` and `B`.
+- **Optimal gain:** MATLAB's `lqr(A, B, Q, R)` finds the gain `K` that best balances tracking error against control effort. The control is `u = K·(x_des − x) + u_des`.
+- **Weights:** `Q` weights position, velocity and yaw most for tight tracking, and `R` penalizes thrust less than the moments.
 
-2. **Linearization along the trajectory.** LQR requires a linear model, so at every time step `f` is linearized around where the quadrotor *should* be: the desired state from the trajectory, with the hover input `u_des = [m·g; 0; 0; 0]`. The Jacobians `A = ∂f/∂x` (12×12) and `B = ∂f/∂u` (12×4) were derived analytically. Because they are re-evaluated at every step, the model stays accurate as the reference moves.
-
-3. **Optimal gain.** MATLAB's `lqr(A, B, Q, R)` solves the Riccati equation for the gain `K` that minimizes a quadratic cost, which trades off tracking error against control effort. The control applied is:
-
-   ```
-   u = K·(x_des − x) + u_des
-   ```
-
-4. **Weights.** `Q = diag([10,10,10, 1,1,10, 10,10,10, 0.1,0.1,0.1])` puts the highest weight on position, velocity and yaw, for tight tracking and less drift while turning. `R = diag([0.1, 1, 1, 1])` penalizes thrust less than the moments.
+---
 
 ## Results
 
@@ -94,6 +80,8 @@ The difference is clearest in **velocity tracking on the diamond**, where the sh
 - **Computational cost:** LQR re-linearizes the model and solves the Riccati equation at every step, which makes it significantly slower to run than PD.
 - **Trade-off:** PD is simpler to implement and tune, while LQR gives noticeably better tracking on dynamic trajectories.
 
+---
+
 ## Repository structure
 
 | Path | Description |
@@ -109,9 +97,13 @@ The difference is clearest in **velocity tracking on the diamond**, where the sh
 | `maps/` | Example environment maps. |
 | `media/` | Figures used in this README. |
 
+---
+
 ## Stack
 
 `MATLAB` · `PD control` · `LQR` · `Linearization` · `Trajectory generation` · `Quadrotor dynamics`
+
+---
 
 ## Running it
 
@@ -129,6 +121,8 @@ Requires MATLAB with the **Control System Toolbox** (for `lqr`).
    ```
 
 The simulator animates the flight in 3D, then plots the desired (blue) and actual (red) position and velocity.
+
+---
 
 ## Acknowledgements
 
