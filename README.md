@@ -7,8 +7,8 @@ This project was done as part of the final project for the RBE 502: Robot Contro
 <table>
   <tr>
     <th></th>
-    <th>Circle (top view)</th>
-    <th>Diamond (side view)</th>
+    <th>Circle</th>
+    <th>Diamond</th>
   </tr>
   <tr>
     <td><b>PD</b></td>
