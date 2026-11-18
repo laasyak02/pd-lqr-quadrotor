@@ -1,6 +1,6 @@
 # PD & LQR Control for Quadrotor Trajectory Tracking
 
-A MATLAB simulation comparing two controllers for a **Crazyflie quadrotor**: a cascaded **PD controller** and a **Linear Quadratic Regulator (LQR)** that is re-linearized around the desired state at every time step. Both controllers fly the same **circle** and **diamond** trajectories, and are compared on how closely they track the desired position and velocity and on how much computation they need.
+A MATLAB simulation that compares two ways of making a **Crazyflie quadrotor** follow a 3D trajectory: a classic cascaded **PD controller** and an **LQR controller** that re-linearizes the dynamics at every time step. Both controllers fly the same **circle** and **diamond** trajectories, and are compared on tracking accuracy and computational cost.
 
 Final project for **RBE 502: Robot Control, WPI**. Built on the course's Crazyflie quadrotor simulator.
 
@@ -27,81 +27,55 @@ Final project for **RBE 502: Robot Control, WPI**. Built on the course's Crazyfl
 
 ## Overview
 
-The quadrotor is assumed to stay close to hover, with small roll and pitch. Each controller computes the four control inputs, total thrust `u1` and body moments `u2 = [Mx, My, Mz]`, that keep it on the desired trajectory.
+The quadrotor is controlled through four inputs: the total thrust `u1` and the three body moments `u2 = [Mx, My, Mz]`. Both controllers assume the quadrotor stays close to hover, with small roll and pitch angles. This keeps the dynamics simple enough to design around, at the cost of ruling out aggressive maneuvers.
 
-- **PD controller:** a cascaded controller. A position loop turns position and velocity errors into a desired acceleration, which gives the thrust `u1` and the desired roll and pitch. An attitude loop then produces the moments `u2`.
-- **LQR controller:** at every time step, the nonlinear dynamics are linearized around the desired state into `A` and `B`, and MATLAB's `lqr()` computes the optimal gain `K`. The control is `u = K·(x_des − x) + u_des`, where `u_des` is the hover input.
+The trajectories are generated as smooth polynomials in `traj/`, which give the desired position, velocity, acceleration and yaw at every moment:
 
-The desired position, velocity, acceleration and yaw come from smooth polynomial trajectories in `traj/`: a **circle** (radius 1 m, climbing to 0.5 m) and a **diamond** in the y–z plane, each flown in 8 s.
+- **Circle:** one loop of radius 1 m over 8 s, climbing gently to 0.5 m.
+- **Diamond:** a diamond in the vertical (y–z) plane, flown as four 2 s legs with sharp corners.
 
 ---
 
-## Approach
+## PD controller
 
-**PD controller** (`control/pid_controller.m`)
-- **Position loop:** `r̈_des = r̈_T + Kd·(ṙ_T − ṙ) + Kp·(r_T − r)`, giving the thrust `u1 = m·g + m·r̈_des,z`.
-- **Attitude loop:** the desired roll and pitch are solved from the commanded horizontal acceleration and desired yaw. The moments are `u2 = I·(Kp,att·e_angle + Kd,att·e_rate)`.
-- **Gains:** position `Kp = [11, 11, 12]`, `Kd = [10.4, 10.4, 10]`; attitude `Kp = [74, 74, 20]`, `Kd = [58, 58, 15]` (roll, pitch, yaw).
+The PD controller (`control/pid_controller.m`) works in two stages, because a quadrotor can only move sideways by tilting:
 
-**LQR controller** (`control/lqr_controller.m`)
-- **Model:** 12 states `x = [position; Euler angles; linear velocity; body rates]` and 4 inputs `u = [u1; u2]`.
-- **Linearization:** at each step, the near-hover dynamics `ẋ = f(x, u)` are linearized analytically around the desired state and hover input, giving `A` (12×12) and `B` (12×4). Then `K = lqr(A, B, Q, R)`.
-- **Weights:** `Q = diag([10,10,10, 1,1,10, 10,10,10, 0.1,0.1,0.1])` weights position, velocity and yaw most for tight tracking. `R = diag([0.1, 1, 1, 1])` penalizes thrust less than the moments.
+1. **Position loop.** It compares the current position and velocity with the desired ones and computes the acceleration needed to correct the error, `r̈_des = r̈_T + Kd·(ṙ_T − ṙ) + Kp·(r_T − r)`. The vertical part sets the thrust `u1`. The horizontal part is converted into the roll and pitch angles that would produce it.
+2. **Attitude loop.** It then computes the moments `u2` needed to reach those angles and the desired yaw, using PD feedback on the angle and angular-rate errors.
+
+The gains were tuned by hand: position `Kp = [11, 11, 12]` and `Kd = [10.4, 10.4, 10]`, and attitude `Kp = [74, 74, 20]` and `Kd = [58, 58, 15]` for roll, pitch and yaw.
+
+---
+
+## LQR controller
+
+The LQR controller (`control/lqr_controller.m`) treats the quadrotor as a single system with 12 states (position, Euler angles, linear velocity and body rates) and computes all four inputs at once.
+
+Since LQR needs a linear model, the near-hover dynamics are linearized at every time step around the point where the quadrotor *should* be: the desired state from the trajectory, with hover thrust as the nominal input. This gives matrices `A` and `B` that describe how small errors evolve. MATLAB's `lqr(A, B, Q, R)` then finds the gain `K` that corrects those errors while balancing accuracy against control effort, and the command is `u = K·(x_des − x) + u_des`.
+
+The weights set what the controller cares about most. `Q` puts the highest weight on position, velocity and yaw, so the quadrotor stays on the path and doesn't drift while turning. `R` penalizes thrust less than the moments.
 
 ---
 
 ## Results
 
-### Velocity tracking
+Both controllers complete both trajectories, but LQR follows them more closely. In the paths at the top of this page, LQR stays close to the diamond's edges, while the PD path overshoots the corners and drifts off some of the edges.
 
-Velocity tracking shows the clearest difference between the two controllers (blue: desired, red: actual).
+The difference is clearest in velocity on the diamond, where the sharp corners demand quick changes of direction:
 
 <table>
   <tr>
-    <th></th>
     <th>PD</th>
     <th>LQR</th>
   </tr>
   <tr>
-    <td><b>Circle</b></td>
-    <td><img width="400" alt="PD velocity tracking on the circle" src="media/pd_circle_vel.png" /></td>
-    <td><img width="400" alt="LQR velocity tracking on the circle" src="media/lqr_circle_vel.png" /></td>
-  </tr>
-  <tr>
-    <td><b>Diamond</b></td>
     <td><img width="400" alt="PD velocity tracking on the diamond" src="media/pd_diamond_vel.png" /></td>
     <td><img width="400" alt="LQR velocity tracking on the diamond" src="media/lqr_diamond_vel.png" /></td>
   </tr>
 </table>
+<p align="center"><em>Velocity on the diamond trajectory. Blue: desired. Red: actual.</em></p>
 
-<details>
-<summary><b>Position tracking plots</b></summary>
-
-<table>
-  <tr>
-    <th></th>
-    <th>PD</th>
-    <th>LQR</th>
-  </tr>
-  <tr>
-    <td><b>Circle</b></td>
-    <td><img width="400" alt="PD position tracking on the circle" src="media/pd_circle_pos.png" /></td>
-    <td><img width="400" alt="LQR position tracking on the circle" src="media/lqr_circle_pos.png" /></td>
-  </tr>
-  <tr>
-    <td><b>Diamond</b></td>
-    <td><img width="400" alt="PD position tracking on the diamond" src="media/pd_diamond_pos.png" /></td>
-    <td><img width="400" alt="LQR position tracking on the diamond" src="media/lqr_diamond_pos.png" /></td>
-  </tr>
-</table>
-
-</details>
-
-### Comparison
-
-- **LQR tracks more accurately.** Position and especially velocity errors are lower. On the diamond, PD overshoots at each corner and oscillates, while LQR follows the corners smoothly.
-- **PD is simpler** to implement and tune, but less accurate on these dynamic trajectories.
-- **LQR costs more to run.** Re-linearizing and solving the Riccati equation at every step makes it much slower than PD.
+PD overshoots at each corner and keeps oscillating after the trajectory ends, while LQR tracks the desired velocity smoothly. The trade-off is computation: re-linearizing and solving for a new gain at every step makes LQR much slower to run than PD. PD remains simpler to implement and tune, but is less accurate on dynamic trajectories like these.
 
 ---
 
