@@ -54,7 +54,7 @@ The desired position, velocity, acceleration and yaw at each moment come from sm
 
 - **Linearization:** LQR needs a linear model, so at every time step the near-hover dynamics are linearized around the desired state from the trajectory and the hover input, giving matrices `A` and `B`.
 - **Optimal gain:** MATLAB's `lqr(A, B, Q, R)` finds the gain `K` that best balances tracking error against control effort. The control is `u = K·(x_des − x) + u_des`.
-- **Weights:** `Q` weights position, velocity and yaw most for tight tracking, and `R` penalizes thrust less than the moments.
+- **Weights:** `Q = diag([10,10,10, 1,1,10, 10,10,10, 0.1,0.1,0.1])` weights position, velocity and yaw most for tight tracking. `R = diag([0.1, 1, 1, 1])` penalizes thrust less than the moments.
 
 ---
 
