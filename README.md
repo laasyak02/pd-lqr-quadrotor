@@ -12,13 +12,13 @@ This project was done as part of the final project for the RBE 502: Robot Contro
   </tr>
   <tr>
     <td><b>PD</b></td>
-    <td><img width="240" alt="PD controller on the circle trajectory" src="media/pd_circle_top_view.png" /></td>
-    <td><img width="240" alt="PD controller on the diamond trajectory" src="media/pd_diamond_side_view.png" /></td>
+    <td><img width="280" alt="PD controller on the circle trajectory" src="media/pd_circle_top_view.png" /></td>
+    <td><img width="280" alt="PD controller on the diamond trajectory" src="media/pd_diamond_side_view.png" /></td>
   </tr>
   <tr>
     <td><b>LQR</b></td>
-    <td><img width="240" alt="LQR controller on the circle trajectory" src="media/lqr_circle_top_view.png" /></td>
-    <td><img width="240" alt="LQR controller on the diamond trajectory" src="media/lqr_diamond_side_view.png" /></td>
+    <td><img width="280" alt="LQR controller on the circle trajectory" src="media/lqr_circle_top_view.png" /></td>
+    <td><img width="280" alt="LQR controller on the diamond trajectory" src="media/lqr_diamond_side_view.png" /></td>
   </tr>
 </table>
 <p align="center"><em>Blue: desired path. Red: path actually flown.</em></p>
